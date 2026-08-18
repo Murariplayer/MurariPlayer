@@ -14,12 +14,17 @@
     wizUse: $('wizUse'), wizSkip: $('wizSkip'), wizCancel: $('wizCancel'),
     gate: $('gate'), app: $('app'), loginForm: $('loginForm'), user: $('user'),
     pass: $('pass'), loginErr: $('loginErr'), logout: $('logout'),
-    upload: $('upload'), fileInput: $('fileInput'), drop: $('drop')
+    upload: $('upload'), fileInput: $('fileInput'), drop: $('drop'),
+    tokenSaved: $('tokenSaved'), forget: $('forget'), repoPanel: $('repoPanel')
   };
 
   const CFG = 'murari-admin-cfg';
   const TOK = 'murari-admin-token';
   const AUTH_KEY = 'murari-admin-auth';
+  const CREDS_KEY = 'murari-admin-creds';
+  // When a proxy Worker is configured the browser never sees a GitHub token.
+  const PROXY = ((window.MURARI_CONFIG && window.MURARI_CONFIG.proxy) || '').replace(/\/+$/, '');
+  const creds = { user: '', pass: '' };
   // Soft gate only: this file is public, so treat it as a speed bump, not security.
   const AUTH = {
     salt: 'murari-player-v1',
@@ -53,16 +58,26 @@
     el.branch.value = saved.branch || 'main';
     const tok = localStorage.getItem(TOK);
     if (tok) { el.token.value = tok; el.remember.checked = true; }
+    if (typeof saved.remember === 'boolean') el.remember.checked = saved.remember;
+    showTokenState();
+  }
+
+  function showTokenState() {
+    let stored = null;
+    try { stored = localStorage.getItem(TOK); } catch { /* ignore */ }
+    el.tokenSaved.classList.toggle('hidden', !stored);
   }
 
   function saveCfg() {
     try {
       localStorage.setItem(CFG, JSON.stringify({
-        owner: el.owner.value.trim(), repo: el.repo.value.trim(), branch: el.branch.value.trim() || 'main'
+        owner: el.owner.value.trim(), repo: el.repo.value.trim(),
+        branch: el.branch.value.trim() || 'main', remember: el.remember.checked
       }));
       if (el.remember.checked && el.token.value) localStorage.setItem(TOK, el.token.value);
       else localStorage.removeItem(TOK);
     } catch { /* storage disabled */ }
+    showTokenState();
   }
 
   const cfg = () => ({
@@ -77,7 +92,18 @@
     el.status.className = 'status ' + kind;
   }
 
-  /* ---------- GitHub API ---------- */
+  /* ---------- write backend: proxy Worker or direct GitHub API ---------- */
+
+  const proxyAuth = () => ({ Authorization: 'Basic ' + btoa(`${creds.user}:${creds.pass}`) });
+
+  async function proxy(path, options = {}) {
+    const res = await fetch(PROXY + path, Object.assign({}, options, {
+      headers: Object.assign(proxyAuth(), options.headers || {})
+    }));
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(body.message || `Upload service error ${res.status}`);
+    return body;
+  }
 
   async function api(path, options = {}) {
     const { token } = cfg();
@@ -96,13 +122,33 @@
     return `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}`;
   };
 
+  const canWrite = () => (PROXY ? Boolean(creds.pass) : Boolean(cfg().token));
+
+  const needAuthMsg = () => (PROXY
+    ? 'Sign in again — the upload service rejected these credentials.'
+    : 'Paste a GitHub token with Contents: read and write access first.');
+
+  async function listDir(dir) {
+    if (PROXY) return proxy(`/list?dir=${encodeURIComponent(dir)}`);
+    const { branch } = cfg();
+    return api(`${repoBase()}/contents/${dir}?ref=${encodeURIComponent(branch)}`);
+  }
+
   async function getSha(path) {
+    if (PROXY) return (await proxy(`/sha?path=${encodeURIComponent(path)}`)).sha || null;
     const { branch } = cfg();
     const info = await api(`${repoBase()}/contents/${path}?ref=${encodeURIComponent(branch)}`);
     return info && info.sha ? info.sha : null;
   }
 
   async function putFile(path, base64, message) {
+    if (PROXY) {
+      return proxy('/put', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path, content: base64, message })
+      });
+    }
     const { branch } = cfg();
     const sha = await getSha(path);
     const body = { message, content: base64, branch };
@@ -170,11 +216,10 @@
   async function scanRepo() {
     say('Scanning repository…');
     try {
-      const { branch } = cfg();
       const known = new Set(tracks.map((t) => decodeURIComponent(t.src)));
       const found = [];
       for (const dir of SCAN_DIRS) {
-        const list = await api(`${repoBase()}/contents/${dir}?ref=${encodeURIComponent(branch)}`);
+        const list = await listDir(dir);
         if (!Array.isArray(list)) continue;
         for (const f of list) {
           if (f.type === 'file' && MEDIA_EXT.test(f.name) && !known.has(`${dir}/${f.name}`)) {
@@ -293,7 +338,7 @@
   async function uploadFiles(fileList) {
     const files = [...fileList].filter((f) => MEDIA_EXT.test(f.name));
     if (!files.length) return say('No playable video or audio files in that selection.', 'err');
-    if (!cfg().token) return say('Paste a GitHub token first — uploading needs write access.', 'err');
+    if (!canWrite()) return say(needAuthMsg(), 'err');
 
     const oversized = files.filter((f) => f.size > MAX_UPLOAD);
     if (oversized.length) {
@@ -506,8 +551,7 @@
   /* ---------- publish ---------- */
 
   async function saveToGitHub() {
-    const { token } = cfg();
-    if (!token) return say('Paste a GitHub token with Contents: read and write access first.', 'err');
+    if (!canWrite()) return say(needAuthMsg(), 'err');
     if (!tracks.length && !confirm('The playlist is empty. Save anyway?')) return;
 
     el.save.disabled = true;
@@ -594,10 +638,18 @@
     say('Downloaded. Upload it to media/playlist.json in the repo.', 'ok');
   });
 
-  for (const input of [el.owner, el.repo, el.branch, el.token]) {
+  for (const input of [el.owner, el.repo, el.branch]) {
     input.addEventListener('change', saveCfg);
   }
+  el.token.addEventListener('input', saveCfg);
   el.remember.addEventListener('change', saveCfg);
+
+  el.forget.addEventListener('click', () => {
+    el.token.value = '';
+    try { localStorage.removeItem(TOK); } catch { /* ignore */ }
+    showTokenState();
+    say('Token removed from this browser.', 'ok');
+  });
 
   /* ---------- sign in ---------- */
 
@@ -609,30 +661,72 @@
   function unlock() {
     el.gate.classList.add('hidden');
     el.app.classList.remove('hidden');
+    if (PROXY) el.repoPanel.classList.add('hidden');
     loadCfg();
     loadPlaylist();
   }
 
+  async function checkCredentials(user, pass) {
+    if (!PROXY) {
+      return await sha256(user.toLowerCase()) === AUTH.user && await sha256(pass) === AUTH.pass;
+    }
+    const res = await fetch(PROXY + '/login', {
+      method: 'POST',
+      headers: { Authorization: 'Basic ' + btoa(`${user}:${pass}`) }
+    });
+    return res.ok;
+  }
+
+  function rememberCreds(user, pass) {
+    creds.user = user;
+    creds.pass = pass;
+    try { localStorage.setItem(CREDS_KEY, btoa(`${user}:${pass}`)); } catch { /* ignore */ }
+  }
+
+  function restoreCreds() {
+    try {
+      const raw = localStorage.getItem(CREDS_KEY);
+      if (!raw) return false;
+      const decoded = atob(raw);
+      const i = decoded.indexOf(':');
+      if (i < 0) return false;
+      creds.user = decoded.slice(0, i);
+      creds.pass = decoded.slice(i + 1);
+      return true;
+    } catch { return false; }
+  }
+
   el.loginForm.addEventListener('submit', async (e) => {
     e.preventDefault();
-    const ok = await sha256(el.user.value.trim().toLowerCase()) === AUTH.user &&
-               await sha256(el.pass.value) === AUTH.pass;
+    const user = el.user.value.trim();
+    const pass = el.pass.value;
+    const button = el.loginForm.querySelector('button[type=submit]');
+    button.disabled = true;
+    let ok = false;
+    try { ok = await checkCredentials(user, pass); } catch { ok = false; }
+    button.disabled = false;
+
     if (!ok) {
       el.loginErr.classList.remove('hidden');
       el.pass.value = '';
       el.pass.focus();
       return;
     }
-    try { sessionStorage.setItem(AUTH_KEY, '1'); } catch { /* storage disabled */ }
+    rememberCreds(user, pass);
+    try { localStorage.setItem(AUTH_KEY, '1'); } catch { /* storage disabled */ }
     unlock();
   });
 
   el.logout.addEventListener('click', () => {
-    try { sessionStorage.removeItem(AUTH_KEY); } catch { /* ignore */ }
+    try {
+      localStorage.removeItem(AUTH_KEY);
+      localStorage.removeItem(CREDS_KEY);
+    } catch { /* ignore */ }
     location.reload();
   });
 
   let signedIn = false;
-  try { signedIn = sessionStorage.getItem(AUTH_KEY) === '1'; } catch { /* ignore */ }
+  try { signedIn = localStorage.getItem(AUTH_KEY) === '1'; } catch { /* ignore */ }
+  restoreCreds();
   if (signedIn) unlock();
 })();

@@ -32,7 +32,7 @@
     <button id="logout" class="btn tiny">Sign out</button>
   </header>
 
-  <section class="panel">
+  <section class="panel" id="repoPanel">
     <h2 class="ph">Repository</h2>
     <div class="grid4">
       <label>Owner<input id="owner" placeholder="Murariplayer"></label>
@@ -40,9 +40,10 @@
       <label>Branch<input id="branch" placeholder="main" value="main"></label>
       <label>Token <span class="hint" title="Fine-grained PAT with Contents: Read and write, or a classic token with repo scope">?</span>
         <input id="token" type="password" placeholder="ghp_… (only needed to save)" autocomplete="off">
+        <span id="tokenSaved" class="saved hidden">🔑 Saved in this browser · <button type="button" id="forget" class="linkish">forget</button></span>
       </label>
     </div>
-    <label class="check"><input id="remember" type="checkbox"> Remember token in this browser (localStorage)</label>
+    <label class="check"><input id="remember" type="checkbox" checked> Keep me signed in on this device</label>
     <p class="warn">The token stays in your browser and is sent only to api.github.com. Never commit it to the repo.</p>
   </section>
 
@@ -100,6 +101,7 @@
   </div>
 </div>
 
+<script src="config.js"></script>
 <script src="admin.js"></script>
 </body>
 </html>

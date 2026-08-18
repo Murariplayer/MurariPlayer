@@ -29,7 +29,7 @@ Supported extensions in the generator: `.mp4 .webm .ogv .m4v .mov .mp3 .m4a .ogg
 
 ## Dashboard
 
-Open `admin.html` (or the ⚙ button in the player) and sign in — username `murari`, password `murari123`.
+Open `admin.html` (or the ⚙ button in the player) and sign in — username `murari`, password `murari123`. Sign-in and the GitHub token are both remembered on that device (**Keep me signed in**), so you paste the token once; use **Sign out** or **forget** to clear them.
 
 > This login is a **soft gate**, not security: `admin.js` is public, so anyone determined can bypass it. Only the salted SHA-256 hashes are stored, never the plaintext. Real protection comes from the GitHub token, which lives only in your browser — without it nobody can change the repo.
 
@@ -50,7 +50,32 @@ The dashboard lets you:
 - **Download playlist.json** — export and upload it yourself
 - **Save to GitHub** — commits `playlist.json` (and any new thumbnails) straight to the repo, then waits until the live site serves the change
 
-Saving needs a GitHub token pasted into the dashboard: a fine-grained PAT with **Contents: Read and write** on this repo, or a classic token with `repo` scope. It is kept in your browser only (optionally in `localStorage`) and sent only to `api.github.com` — never commit it to the repo.
+Saving needs a GitHub token pasted into the dashboard: a fine-grained PAT with **Contents: Read and write** on this repo, or a classic token with `repo` scope. It is kept in your browser only (optionally in `localStorage`) and sent only to `api.github.com` — never commit it to the repo. To avoid tokens entirely, see **Token-free uploads** below.
+
+## Token-free uploads (recommended for sharing)
+
+Deploy `tools/worker.js` as a **Cloudflare Worker** so the GitHub token lives on the server instead of in the browser. Anyone you share the login with can then upload videos without touching GitHub.
+
+1. Create a fine-grained PAT: **Contents: Read and write**, this repository only.
+2. dash.cloudflare.com → Workers & Pages → **Create → Worker** → deploy the starter, then **Edit code** and paste `tools/worker.js`.
+3. Settings → **Variables and Secrets** — add:
+
+   | Name | Type | Value |
+   | --- | --- | --- |
+   | `GH_TOKEN` | Secret | your PAT |
+   | `ADMIN_USER` | Secret | `murari` |
+   | `ADMIN_PASS` | Secret | `murari123` |
+   | `REPO` | Text | `Owner/Repo` |
+   | `BRANCH` | Text | `main` |
+   | `ALLOW_ORIGIN` | Text | `https://<account>.github.io` |
+
+4. Put the Worker URL in `config.js`:
+
+   ```js
+   window.MURARI_CONFIG = { proxy: 'https://your-worker.workers.dev' };
+   ```
+
+Now the dashboard's repository/token panel disappears: signing in *is* the authorisation, checked server-side by the Worker. The Worker only ever writes to `assets/` and `media/playlist.json`, so a leaked login can't touch the site's code. Change the password by updating `ADMIN_PASS` (and the hashes in `admin.js`, which still guard the UI when no proxy is configured).
 
 ## Run locally
 
@@ -88,6 +113,7 @@ Playlist with search, shuffle, repeat, seek bar, volume/mute, keyboard shortcuts
 ```
 index.html            player markup
 admin.html            dashboard markup
+config.js             public settings (proxy URL)
 style.css             player styles
 admin.css             dashboard styles
 app.js                player logic
@@ -95,4 +121,5 @@ admin.js              dashboard logic
 media/playlist.json   the playlist manifest
 assets/               videos + thumbs/
 tools/build-playlist.js   regenerates the manifest from media/ and assets/
+tools/worker.js           Cloudflare Worker for token-free uploads
 ```
