@@ -20,6 +20,12 @@
       <div class="screen">
         <video id="player" playsinline preload="metadata" poster="assets/poster.svg"></video>
         <div id="idle" class="idle">Pick something from the playlist</div>
+        <div id="spinner" class="spinner hidden" aria-hidden="true"><span></span></div>
+      </div>
+
+      <div id="banner" class="banner hidden" role="status">
+        <span id="bannerMsg"></span>
+        <button id="bannerBtn" type="button" class="hidden"></button>
       </div>
 
       <div class="meta">
