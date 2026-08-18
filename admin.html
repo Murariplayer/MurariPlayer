@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dashboard · Murari Player</title>
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="admin.css">
+</head>
+<body>
+<div id="gate" class="modal">
+  <form id="loginForm" class="modal-card login">
+    <h3 class="ph">Dashboard sign in</h3>
+    <div class="grid2">
+      <label>Username<input id="user" type="text" autocomplete="username" autofocus></label>
+      <label>Password<input id="pass" type="password" autocomplete="current-password"></label>
+    </div>
+    <p id="loginErr" class="warn hidden">Wrong username or password.</p>
+    <div class="modal-btns">
+      <a class="linkbtn" href="index.html">← Back to player</a>
+      <span class="spacer"></span>
+      <button type="submit" class="btn primary">Sign in</button>
+    </div>
+  </form>
+</div>
+
+<div id="app" class="hidden">
+  <header class="topbar">
+    <h1>Murari<span>Dashboard</span></h1>
+    <a class="linkbtn" href="index.html">← Back to player</a>
+    <button id="logout" class="btn tiny">Sign out</button>
+  </header>
+
+  <section class="panel">
+    <h2 class="ph">Repository</h2>
+    <div class="grid4">
+      <label>Owner<input id="owner" placeholder="Murariplayer"></label>
+      <label>Repo<input id="repo" placeholder="MurariBhaiyaPlayer"></label>
+      <label>Branch<input id="branch" placeholder="main" value="main"></label>
+      <label>Token <span class="hint" title="Fine-grained PAT with Contents: Read and write, or a classic token with repo scope">?</span>
+        <input id="token" type="password" placeholder="ghp_… (only needed to save)" autocomplete="off">
+      </label>
+    </div>
+    <label class="check"><input id="remember" type="checkbox"> Remember token in this browser (localStorage)</label>
+    <p class="warn">The token stays in your browser and is sent only to api.github.com. Never commit it to the repo.</p>
+  </section>
+
+  <section class="panel">
+    <div class="toolbar">
+      <button id="reload" class="btn">↻ Reload playlist</button>
+      <button id="scan" class="btn">🔍 Scan repo for new videos</button>
+      <button id="addRow" class="btn">＋ Add entry</button>
+      <button id="upload" class="btn">⬆ Upload videos</button>
+      <input id="fileInput" type="file" accept="video/*,audio/*" multiple hidden>
+      <button id="fixThumbs" class="btn">🖼 Missing thumbnails</button>
+      <span class="spacer"></span>
+      <button id="download" class="btn">⬇ Download playlist.json</button>
+      <button id="save" class="btn primary">🚀 Save to GitHub</button>
+    </div>
+    <div id="status" class="status"></div>
+    <div id="drop" class="drop">Drop video or audio files here to upload them to <code>assets/</code></div>
+  </section>
+
+  <section class="panel">
+    <div class="playlist-head">
+      <h2 class="ph">Tracks</h2>
+      <span id="count" class="count">0</span>
+    </div>
+    <div id="rows" class="rows"></div>
+    <p id="none" class="empty hidden">No tracks loaded.</p>
+  </section>
+
+  <footer class="foot">
+    Thumbnails are captured from the video in your browser and saved to <code>assets/thumbs/</code>.
+  </footer>
+</div>
+
+<video id="grabber" class="offscreen" muted playsinline preload="auto" crossorigin="anonymous"></video>
+<canvas id="canvas" class="offscreen"></canvas>
+
+<div id="wiz" class="modal hidden" role="dialog" aria-modal="true">
+  <div class="modal-card">
+    <h3 id="wizStep" class="ph">New video</h3>
+    <p id="wizFile" class="src"></p>
+    <video id="wizVideo" class="wizvideo" muted playsinline preload="auto"></video>
+    <label class="wizrange">Thumbnail frame — drag to pick
+      <input id="wizTime" type="range" min="0" max="100" step="0.1" value="0">
+    </label>
+    <div class="grid2">
+      <label>Track name<input id="wizTitle" type="text" placeholder="Name this track"></label>
+      <label>Artist / subtitle<input id="wizArtist" type="text" placeholder="optional"></label>
+    </div>
+    <div class="modal-btns">
+      <button id="wizCancel" class="btn">Cancel all</button>
+      <span class="spacer"></span>
+      <button id="wizSkip" class="btn">Skip</button>
+      <button id="wizUse" class="btn primary">Use this frame →</button>
+    </div>
+  </div>
+</div>
+
+<script src="admin.js"></script>
+</body>
+</html>

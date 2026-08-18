@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Murari Player</title>
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="app">
+  <header class="topbar">
+    <h1>Murari<span>Player</span></h1>
+    <input id="search" type="search" placeholder="Search tracks…" autocomplete="off">
+    <a class="gear" href="admin.html" title="Dashboard">⚙</a>
+  </header>
+
+  <main class="layout">
+    <section class="stage">
+      <div class="screen">
+        <video id="player" playsinline preload="metadata" poster="assets/poster.svg"></video>
+        <div id="idle" class="idle">Pick something from the playlist</div>
+      </div>
+
+      <div class="meta">
+        <div class="title" id="nowTitle">Nothing playing</div>
+        <div class="sub" id="nowSub">—</div>
+      </div>
+
+      <div class="seek">
+        <span id="curTime">0:00</span>
+        <input id="seek" type="range" min="0" max="1000" value="0" step="1" aria-label="Seek">
+        <span id="durTime">0:00</span>
+      </div>
+
+      <div class="controls">
+        <button id="shuffle" class="ghost" title="Shuffle (S)" aria-pressed="false">🔀</button>
+        <button id="prev" title="Previous (←)">⏮</button>
+        <button id="play" class="primary" title="Play / Pause (Space)">▶</button>
+        <button id="next" title="Next (→)">⏭</button>
+        <button id="repeat" class="ghost" title="Repeat (R)" aria-pressed="false">🔁</button>
+
+        <div class="vol">
+          <button id="mute" class="ghost" title="Mute (M)">🔊</button>
+          <input id="volume" type="range" min="0" max="1" step="0.01" value="1" aria-label="Volume">
+        </div>
+      </div>
+    </section>
+
+    <aside class="playlist">
+      <div class="playlist-head">
+        <h2>Playlist</h2>
+        <span id="count" class="count">0</span>
+      </div>
+      <ol id="list" class="list"></ol>
+      <p id="empty" class="empty hidden">
+        No tracks yet. Drop files into <code>media/</code> and run
+        <code>node tools/build-playlist.js</code>.
+      </p>
+    </aside>
+  </main>
+
+  <footer class="foot">
+    Space play/pause · ← → prev/next · ↑ ↓ volume · M mute · S shuffle · R repeat · F fullscreen
+  </footer>
+</div>
+<script src="app.js"></script>
+</body>
+</html>
