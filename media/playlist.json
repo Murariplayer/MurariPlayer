@@ -34,5 +34,10 @@
     "title": "Lena nila nila",
     "artist": "Murari",
     "poster": "assets/thumbs/gemini_music-6-2.jpg"
+  },
+  {
+    "src": "assets/gemini_music.mp4",
+    "title": "मुरारी के किला खड़ा",
+    "poster": "assets/thumbs/gemini_music.jpg"
   }
 ]
